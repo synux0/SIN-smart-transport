@@ -146,7 +146,7 @@ def move_a_truck_method(state, destination_city):
     # get the closest one and move it to city
     truck_to_move = find_closest_truck_to_city(destination_city)
 
-    return [('move_a_driver_to_city', destination_city), ('move_the_truck_to_city', truck_to_move, destination_city)]
+    return [('move_the_truck_to_city', truck_to_move, destination_city)]
 
 
 def a_truck_already_in_city(state, destination_city):
@@ -189,7 +189,7 @@ def deliver_package_method(state, goal, package):
     package_goal_location = goal.packages[package]['location']
 
     if package_current_location != package_goal_location:
-        return [('move_a_truck_to_city', package_current_location), ('move_a_driver_to_city', package_current_location), ('deliver_package_to_city', goal, package)]
+        return [('move_a_driver_to_city', package_current_location), ('move_a_truck_to_city', package_current_location), ('deliver_package_to_city', goal, package)]
     
     return False
 
@@ -220,14 +220,14 @@ def smart_transport_method(state, goal):
         truck_goal_location = goal.trucks[truck]['location']
 
         if truck_current_location != truck_goal_location:
-            return [('transport_truck', truck, goal), ('smart_transport', goal)]
+            return [('move_a_driver_to_city', truck_current_location), ('move_the_truck_to_city', truck, truck_goal_location), ('smart_transport', goal)]
     
     for driver in goal.drivers.keys():
         driver_current_location = state.drivers[driver]['location']
         driver_goal_location = goal.drivers[driver]['location']
 
         if driver_current_location != driver_goal_location:
-            return [('transport_driver', driver, goal), ('smart_transport', goal)]
+            return [('move_the_driver_to_city', driver, driver_goal_location), ('smart_transport', goal)]
 
     return []
 
