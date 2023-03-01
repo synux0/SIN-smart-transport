@@ -22,6 +22,16 @@ def move_the_driver_op(state, driver, next_city):
         return False
 
 
+def move_the_truck_op(state, truck, next_city):
+    current_city = state.trucks[truck]['location']
+
+    if next_city in state.road_connections[current_city].keys():
+        state.trucks[truck]['location'] = next_city
+        return state
+    else:
+        return False
+
+
 def pay_bus_ticket_op(state, driver):
     state.drivers[driver]['expenses'] += BUS_TICKET
     
@@ -41,16 +51,16 @@ def move_the_driver_method(state, driver, destination_city):
     current_city = state.drivers[driver]['location']
 
     if current_city != destination_city:
-        next_city = get_next_city(current_city, destination_city)
+        next_city = get_next_city_by_track(current_city, destination_city)
 
         return [('move_the_driver_op', driver, next_city), ('move_the_driver', driver, destination_city)]
     return False
 
 
 def the_driver_already_in_city(state, driver, destination_city):
-    driver_current_location = state.drivers[driver]['location']
+    current_city = state.drivers[driver]['location']
     
-    if driver_current_location == destination_city:
+    if current_city == destination_city:
         return []
     return False
 
@@ -105,14 +115,20 @@ def a_driver_already_in_city(state, destination_city):
 pyhop.declare_methods('move_a_driver_to_city', move_a_driver_method, a_driver_already_in_city)
 
 
-def move_the_truck_method(state, truck, city):
-    
+def move_the_truck_method(state, truck, destination_city):
+    current_city = state.trucks[truck]['location']
 
-    return [('move_the_truck_op', truck, truck_next_position), ('move_the_truck_to_city', truck, city)]
+    if current_city != destination_city:
+        next_city = get_next_city_by_road(current_city, destination_city)
+
+        return [('move_the_truck_op', truck, next_city), ('move_the_truck_to_city', truck, destination_city)]
+    return False
 
 
 def the_truck_already_in_city(state, truck, destination_city):
-    if state.trucks[truck]['location'] == destination_city:
+    current_city = state.trucks[truck]['location']
+
+    if current_city != destination_city:
         return []
     
     return False
@@ -130,7 +146,7 @@ def move_a_truck_method(state, destination_city):
     # get the closest one and move it to city
     truck_to_move = find_closest_truck_to_city(destination_city)
 
-    return [('move_the_truck_to_city', truck_to_move, destination_city)]
+    return [('move_a_driver_to_city', destination_city), ('move_the_truck_to_city', truck_to_move, destination_city)]
 
 
 def a_truck_already_in_city(state, destination_city):
@@ -144,6 +160,28 @@ def a_truck_already_in_city(state, destination_city):
 
 
 pyhop.declare_methods('move_a_truck_to_city', move_a_truck_method, a_truck_already_in_city)
+
+
+def deliver_package_to_city_method(state, goal, package):
+    origin_city = state.packages[package]['location']
+    destination_city = goal.packages[package]['location']
+
+    # Get a truck in the same city as the package
+    deliver_truck = ""
+    for truck in state.trucks.keys():
+        if truck['location'] == origin_city:
+            deliver_truck = truck
+    
+    # Get a driver in the same city as the package
+    deliver_driver = ""
+    for driver in state.drivers.keys():
+        if driver['location'] == origin_city:
+             deliver_driver = driver
+
+    return [('load_package_op', package, deliver_truck), ('load_driver_op', deliver_driver, deliver_truck), ('move_the_truck_to_city', deliver_truck, destination_city), ('unload_driver_op', deliver_driver, deliver_truck), ('unload_package_op', package, deliver_truck)]
+
+
+pyhop.declare_methods('deliver_package_to_city', deliver_package_to_city_method)
 
 
 def deliver_package_method(state, goal, package):
