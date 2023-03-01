@@ -7,6 +7,47 @@ BUS_TICKET = 1.5
 
 
 # Auxiliary functions
+def find_closest_driver_to_city(state, destination_city):
+    visited = []
+    queue = []
+    graph = state.track_connections
+
+    visited.append(destination_city)
+    queue.append(destination_city)
+
+    while queue:
+        city = queue.pop(0)
+
+        # Search for a driver in city
+        for driver in state.drivers.keys():
+            if driver['location'] == city:
+                return driver
+
+        for neighbor in graph[city]:
+            if neighbor not in visited:
+                visited.append(neighbor)
+                queue.append(neighbor)
+
+def find_closest_truck_to_city(state, destination_city):
+    visited = []
+    queue = []
+    graph = state.road_connections
+
+    visited.append(destination_city)
+    queue.append(destination_city)
+
+    while queue:
+        city = queue.pop(0)
+
+        # Search for a truck in city
+        for truck in state.trucks.keys():
+            if truck['location'] == city:
+                return truck
+
+        for neighbor in graph[city]:
+            if neighbor not in visited:
+                visited.append(neighbor)
+                queue.append(neighbor)
 
 
 # Operators: They return the state (if conditions are met) or False (if conditions are not met)
@@ -144,7 +185,7 @@ def move_a_driver_method(state, destination_city):
     
     # If no driver is present in city,
     # get the closest one and move it to city
-    driver_to_move = find_closest_driver_to_city(destination_city)
+    driver_to_move = find_closest_driver_to_city(state, destination_city)
 
     return [('move_the_driver_to_city', driver_to_move, destination_city)]
 
@@ -191,7 +232,7 @@ def move_a_truck_method(state, destination_city):
     
     # If no truck is present in city,
     # get the closest one and move it to city
-    truck_to_move = find_closest_truck_to_city(destination_city)
+    truck_to_move = find_closest_truck_to_city(state, destination_city)
 
     return [('move_the_truck_to_city', truck_to_move, destination_city)]
 
@@ -306,17 +347,17 @@ state1.trucks = {
 }
 
 state1.track_connections = {
-    'C0': {'P_01': 1},
-    'P_01': {'C0': 1, 'C1': 1},
-    'C1': {'P_01': 1, 'P_12': 1},
-    'P_12': {'C1': 1, 'C2': 1},
-    'C2': {'P_12': 1}
+    'C0': {'P_01'},
+    'P_01': {'C0', 'C1'},
+    'C1': {'P_01', 'P_12'},
+    'P_12': {'C1', 'C2'},
+    'C2': {'P_12'}
 }
 
 state1.road_connections = {
-    'C0': {'C1': 1, 'C2': 1},
-    'C1': {'C0': 1, 'C2': 1},
-    'C2': {'C0': 1, 'C1': 1}
+    'C0': {'C1', 'C2'},
+    'C1': {'C0', 'C2'},
+    'C2': {'C0', 'C1'}
 }
 
 
