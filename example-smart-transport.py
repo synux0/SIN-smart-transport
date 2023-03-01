@@ -31,6 +31,53 @@ def move_the_truck_op(state, truck, next_city):
     else:
         return False
 
+def load_package_op(state, package, truck):
+    package_location = state.packages[package]['location']
+    truck_location = state.trucks[truck]['location']
+
+    if package_location == truck_location:
+        state.packages[package]['location'] = truck
+        state.trucks[truck]['cargo'].add(package)
+        return state
+    else:
+        return False
+
+
+def unload_package_op(state, package, truck):
+    package_location = state.packages[package]['location']
+    truck_location = state.trucks[truck]['location']
+
+    if package_location == truck:
+        state.packages[package]['location'] = truck_location
+        state.trucks[truck]['cargo'].discard(package)
+        return state
+    else:
+        return False
+
+
+def load_driver_op(state, driver, truck):
+    driver_location = state.drivers[driver]['location']
+    truck_location = state.trucks[truck]['location']
+
+    if driver_location == truck_location:
+        state.drivers[driver]['location'] = truck
+        state.trucks[truck]['driver'] = driver
+        return state
+    else:
+        return False
+
+
+def unload_driver_op(state, driver, truck):
+    driver_location = state.drivers[driver]['location']
+    truck_location = state.trucks[truck]['location']
+
+    if driver_location == truck:
+        state.drivers[driver]['location'] = truck_location
+        state.trucks[truck]['driver'] = "none"
+        return state
+    else:
+        return False
+
 
 def pay_bus_ticket_op(state, driver):
     state.drivers[driver]['expenses'] += BUS_TICKET
@@ -42,7 +89,7 @@ def pay_bus_ticket_op(state, driver):
 # they also have to be specified to pyhop using "declare_operators".
 # Important: ALL operators must be declared in a SINGLE "declare_operators" call.
 
-pyhop.declare_operators(move_the_driver_op, pay_bus_ticket_op)
+pyhop.declare_operators(move_the_driver_op, move_the_truck_op, load_package_op, unload_package_op, load_driver_op, unload_driver_op, pay_bus_ticket_op)
 print()
 pyhop.print_operators()
 
