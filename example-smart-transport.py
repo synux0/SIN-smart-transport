@@ -7,6 +7,29 @@ BUS_TICKET = 1.5
 
 
 # Auxiliary functions
+
+def get_distance(state, origin_city, destination_city):
+    graph = state.track_connections
+    
+    distances = {node: float('inf') for node in graph}
+    distances[origin_city] = 0
+
+    unvisited = set(graph.keys())
+
+    while unvisited:
+        current_city = min(unvisited, key=lambda node: distances[node])
+
+        unvisited.remove(current_city)
+
+        for neighbor in graph[current_city]:
+            distance = distances[current_city] + 1
+
+            if distance < distances[neighbor]:
+                distances[neighbor] = distance
+
+    return distances[destination_city]
+
+
 def find_closest_driver_to_city(state, destination_city):
     visited = []
     queue = []
@@ -27,6 +50,7 @@ def find_closest_driver_to_city(state, destination_city):
             if neighbor not in visited:
                 visited.append(neighbor)
                 queue.append(neighbor)
+
 
 def find_closest_truck_to_city(state, destination_city):
     visited = []
@@ -157,7 +181,7 @@ pyhop.declare_methods('move_the_driver', move_the_driver_method, the_driver_alre
 
 
 def move_the_driver_by_foot(state, driver, destination_city):
-    distance = get_distance(state.drivers[driver]['location'], destination_city)
+    distance = get_distance(state, state.drivers[driver]['location'], destination_city)
 
     if distance < 2:
         return [('move_the_driver', driver, destination_city)]
@@ -166,7 +190,7 @@ def move_the_driver_by_foot(state, driver, destination_city):
 
 
 def move_the_driver_by_bus(state, driver, destination_city):
-    distance = get_distance(state.drivers[driver]['location'], destination_city)
+    distance = get_distance(state, state.drivers[driver]['location'], destination_city)
 
     if distance >= 2:
         return [('pay_bus_ticket_op', driver), ('move_the_driver', driver, destination_city)]
