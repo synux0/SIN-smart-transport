@@ -8,9 +8,7 @@ BUS_TICKET = 1.5
 
 # Auxiliary functions
 
-def get_distance(state, origin_city, destination_city):
-    graph = state.track_connections
-    
+def get_distance(graph, origin_city, destination_city):
     distances = {node: float('inf') for node in graph}
     distances[origin_city] = 0
 
@@ -29,6 +27,34 @@ def get_distance(state, origin_city, destination_city):
 
     return distances[destination_city]
 
+def get_route(graph, origin_city, destination_city):
+    distances = {node: float('inf') for node in graph}
+    distances[origin_city] = 0
+    previous_nodes = {node: None for node in graph}
+
+    unvisited = set(graph.keys())
+
+    while unvisited:
+        current_city = min(unvisited, key=lambda node: distances[node])
+
+        if current_city == destination_city:
+            path = []
+            while current_city is not None:
+                path.append(current_city)
+                current_city = previous_nodes[current_city]
+            return list(reversed(path))
+
+        unvisited.remove(current_city)
+
+        for neighbor in graph[current_city]:
+            distance = distances[current_city] + 1
+
+            if distance < distances[neighbor]:
+                distances[neighbor] = distance
+                previous_nodes[neighbor] = current_city
+
+    return None
+
 
 def find_closest_driver_to_city(state, destination_city):
     visited = []
@@ -43,7 +69,7 @@ def find_closest_driver_to_city(state, destination_city):
 
         # Search for a driver in city
         for driver in state.drivers.keys():
-            if driver['location'] == city:
+            if state.drivers[driver]['location'] == city:
                 return driver
 
         for neighbor in graph[city]:
@@ -65,7 +91,7 @@ def find_closest_truck_to_city(state, destination_city):
 
         # Search for a truck in city
         for truck in state.trucks.keys():
-            if truck['location'] == city:
+            if state.trucks[truck]['location'] == city:
                 return truck
 
         for neighbor in graph[city]:
@@ -80,7 +106,7 @@ def find_closest_truck_to_city(state, destination_city):
 def move_the_driver_op(state, driver, next_city):
     current_city = state.drivers[driver]['location']
 
-    if next_city in state.track_connections[current_city].keys():
+    if next_city in state.track_connections[current_city]:
         state.drivers[driver]['location'] = next_city
         return state
     else:
@@ -90,7 +116,7 @@ def move_the_driver_op(state, driver, next_city):
 def move_the_truck_op(state, truck, next_city):
     current_city = state.trucks[truck]['location']
 
-    if next_city in state.road_connections[current_city].keys():
+    if next_city in state.road_connections[current_city]:
         state.trucks[truck]['location'] = next_city
         return state
     else:
@@ -159,41 +185,42 @@ print()
 pyhop.print_operators()
 
 
-def move_the_driver_method(state, driver, destination_city):
+def move_the_driver_method(state, driver, route, destination_city):
     current_city = state.drivers[driver]['location']
 
     if current_city != destination_city:
-        next_city = get_next_city_by_track(current_city, destination_city)
+        next_city = route.pop(0)
+        return [('move_the_driver_op', driver, next_city), ('move_the_driver', driver, route, destination_city)]
 
-        return [('move_the_driver_op', driver, next_city), ('move_the_driver', driver, destination_city)]
     return False
 
 
-def the_driver_already_in_city(state, driver, destination_city):
+def the_driver_already_in_city(state, driver, route, destination_city):
     current_city = state.drivers[driver]['location']
     
     if current_city == destination_city:
         return []
+
     return False
 
 
 pyhop.declare_methods('move_the_driver', move_the_driver_method, the_driver_already_in_city)
 
 
-def move_the_driver_by_foot(state, driver, destination_city):
-    distance = get_distance(state, state.drivers[driver]['location'], destination_city)
+def move_the_driver_by_foot(state, driver, route, destination_city):
+    distance = get_distance(state.track_connections, state.drivers[driver]['location'], destination_city)
 
     if distance < 2:
-        return [('move_the_driver', driver, destination_city)]
+        return [('move_the_driver', driver, route, destination_city)]
     
     return False
 
 
-def move_the_driver_by_bus(state, driver, destination_city):
-    distance = get_distance(state, state.drivers[driver]['location'], destination_city)
+def move_the_driver_by_bus(state, driver, route, destination_city):
+    distance = get_distance(state.track_connections, state.drivers[driver]['location'], destination_city)
 
     if distance >= 2:
-        return [('pay_bus_ticket_op', driver), ('move_the_driver', driver, destination_city)]
+        return [('pay_bus_ticket_op', driver), ('move_the_driver', driver, route, destination_city)]
     
     return False
 
@@ -204,20 +231,24 @@ pyhop.declare_methods('move_the_driver_to_city', move_the_driver_by_foot, move_t
 def move_a_driver_method(state, destination_city):
     # Search for a driver in city
     for driver in state.drivers.keys():
-        if driver['location'] == destination_city:
+        if state.drivers[driver]['location'] == destination_city:
             return False
     
     # If no driver is present in city,
     # get the closest one and move it to city
     driver_to_move = find_closest_driver_to_city(state, destination_city)
 
-    return [('move_the_driver_to_city', driver_to_move, destination_city)]
+    # Calculate the route of the truck
+    route = get_route(state.track_connections, state.drivers[driver_to_move]['location'], destination_city)
+    route.pop(0)
+
+    return [('move_the_driver_to_city', driver_to_move, route, destination_city)]
 
 
 def a_driver_already_in_city(state, destination_city):
     # Search for a driver in city
     for driver in state.drivers.keys():
-        if driver['location'] == destination_city:
+        if state.drivers[driver]['location'] == destination_city:
             return []
     
     #If there was no driver found in city
@@ -227,20 +258,20 @@ def a_driver_already_in_city(state, destination_city):
 pyhop.declare_methods('move_a_driver_to_city', move_a_driver_method, a_driver_already_in_city)
 
 
-def move_the_truck_method(state, truck, destination_city):
+def move_the_truck_method(state, truck, route, destination_city):
     current_city = state.trucks[truck]['location']
 
     if current_city != destination_city:
-        next_city = get_next_city_by_road(current_city, destination_city)
+        next_city = route.pop(0)
 
-        return [('move_the_truck_op', truck, next_city), ('move_the_truck_to_city', truck, destination_city)]
+        return [('move_the_truck_op', truck, next_city), ('move_the_truck_to_city', truck, route, destination_city)]
     return False
 
 
-def the_truck_already_in_city(state, truck, destination_city):
+def the_truck_already_in_city(state, truck, route, destination_city):
     current_city = state.trucks[truck]['location']
 
-    if current_city != destination_city:
+    if current_city == destination_city:
         return []
     
     return False
@@ -251,20 +282,24 @@ pyhop.declare_methods('move_the_truck_to_city', move_the_truck_method, the_truck
 def move_a_truck_method(state, destination_city):
     # Search for a truck in city
     for truck in state.trucks.keys():
-        if truck['location'] == destination_city:
+        if state.trucks[truck]['location'] == destination_city:
             return False
     
     # If no truck is present in city,
-    # get the closest one and move it to city
+    # get the closest one
     truck_to_move = find_closest_truck_to_city(state, destination_city)
 
-    return [('move_the_truck_to_city', truck_to_move, destination_city)]
+    # Calculate the route of the truck
+    route = get_route(state.road_connections, state.trucks[truck_to_move]['location'], destination_city)
+    route.pop(0)
+
+    return [('move_the_truck_to_city', truck_to_move, route, destination_city)]
 
 
 def a_truck_already_in_city(state, destination_city):
     # Search for a truck in city
     for truck in state.trucks.keys():
-        if truck['location'] == destination_city:
+        if state.trucks[truck]['location'] == destination_city:
             return []
     
     #If there was no truck found in city
@@ -281,16 +316,20 @@ def deliver_package_to_city_method(state, goal, package):
     # Get a truck in the same city as the package
     deliver_truck = ""
     for truck in state.trucks.keys():
-        if truck['location'] == origin_city:
+        if state.trucks[truck]['location'] == origin_city:
             deliver_truck = truck
     
     # Get a driver in the same city as the package
     deliver_driver = ""
     for driver in state.drivers.keys():
-        if driver['location'] == origin_city:
+        if state.drivers[driver]['location'] == origin_city:
              deliver_driver = driver
+    
+    # Calculate the route of the truck
+    route = get_route(state.road_connections, origin_city, destination_city)
+    route.pop(0)
 
-    return [('load_package_op', package, deliver_truck), ('load_driver_op', deliver_driver, deliver_truck), ('move_the_truck_to_city', deliver_truck, destination_city), ('unload_driver_op', deliver_driver, deliver_truck), ('unload_package_op', package, deliver_truck)]
+    return [('load_package_op', package, deliver_truck), ('load_driver_op', deliver_driver, deliver_truck), ('move_the_truck_to_city', deliver_truck, route, destination_city), ('unload_driver_op', deliver_driver, deliver_truck), ('unload_package_op', package, deliver_truck)]
 
 
 pyhop.declare_methods('deliver_package_to_city', deliver_package_to_city_method)
@@ -332,14 +371,20 @@ def smart_transport_method(state, goal):
         truck_goal_location = goal.trucks[truck]['location']
 
         if truck_current_location != truck_goal_location:
-            return [('move_a_driver_to_city', truck_current_location), ('move_the_truck_to_city', truck, truck_goal_location), ('smart_transport', goal)]
+            # Calculate the route of the truck
+            route = get_route(state.road_connections, truck_current_location, truck_goal_location)
+            route.pop(0)
+            return [('move_a_driver_to_city', truck_current_location), ('move_the_truck_to_city', truck, route, truck_goal_location), ('smart_transport', goal)]
     
     for driver in goal.drivers.keys():
         driver_current_location = state.drivers[driver]['location']
         driver_goal_location = goal.drivers[driver]['location']
 
         if driver_current_location != driver_goal_location:
-            return [('move_the_driver_to_city', driver, driver_goal_location), ('smart_transport', goal)]
+            # Calculate the route of the truck
+            route = get_route(state.track_connections, driver_current_location, driver_goal_location)
+            route.pop(0)
+            return [('move_the_driver_to_city', driver, route, driver_goal_location), ('smart_transport', goal)]
 
     return []
 
@@ -362,12 +407,12 @@ state1.drivers = {
 
 state1.packages = {
     'P1': {'location': 'C0'},
-    'P2': {'locations': 'C0'}
+    'P2': {'location': 'C0'}
 }
     
 state1.trucks = {
-    'T1': {'location': 'C1', 'driver': 'none', 'cargo': {}},
-    'T2': {'location': 'C0', 'driver': 'none', 'cargo': {}}
+    'T1': {'location': 'C1', 'driver': 'none', 'cargo': set()},
+    'T2': {'location': 'C0', 'driver': 'none', 'cargo': set()}
 }
 
 state1.track_connections = {
@@ -389,12 +434,20 @@ state1.road_connections = {
 
 goal1 = pyhop.Goal('goal1')
 
-goal1.drivers['D1']['location'] = 'C0'
+goal1.drivers = {
+    'D1': {'location': 'C0'}
+}
 
-goal1.packages['P1']['location'] = 'C1'
-goal1.packages['P2']['location'] = 'C2'
+goal1.packages = {
+    'P1': {'location': 'C1'},
+    'P2': {'location': 'C2'}
+}
 
-goal1.trucks['T1']['location'] = 'C0'
+goal1.trucks = {
+    'T1': {'location': 'C0'},
+    'T2': {'location': 'C0'}
+}
+
 
 print("""
 ****************************************************************************************
